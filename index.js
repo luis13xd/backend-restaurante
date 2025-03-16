@@ -19,6 +19,13 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const SECRET_KEY = process.env.JWT_SECRET;
 
+// Configuración de Cloudinary
+cloudinary.config({
+  cloud_name: "dntqcucm0",
+  api_key: "527779671966668",
+  api_secret: "PytC_XdWC1RcEeToT7i2jSC43B4",
+});
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
@@ -28,21 +35,8 @@ mongoose
   .connect(MONGO_URI)
   .then(() => console.log("MongoDB conectado"))
   .catch((err) => console.log("Error al conectar con MongoDB:", err));
-// Configurar carpeta estática para acceder a las imágenes
-app.use("/photos", express.static(path.join(__dirname, "photos")));
-// Configuración de Multer para subir imágenes
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "photos");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+// Configuración de Multer (para leer archivos en memoria)
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // Modelo de Usuario
@@ -187,6 +181,33 @@ app.delete("/categories/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// Ruta para subir imágenes a Cloudinary
+app.post("/upload", authMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No se ha subido ninguna imagen" });
+    }
+
+    // Subir imagen a Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "products" },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      streamifier.createReadStream(req.file.buffer).pipe(stream);
+    });
+
+    res.json({ imageUrl: result.secure_url });
+  } catch (error) {
+    console.error("Error al subir imagen:", error);
+    res.status(500).json({ message: "Error al subir imagen" });
+  }
+});
+
+
 // Crear producto dentro de una categoría
 app.post("/products", authMiddleware, async (req, res) => {
   try {
@@ -214,8 +235,6 @@ app.post("/products", authMiddleware, async (req, res) => {
   }
 });
 
-
-app.use("/photos", express.static(path.join(__dirname, "photos")));
 
 app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   try {
