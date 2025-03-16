@@ -211,8 +211,9 @@ app.post("/upload", authMiddleware, upload.single("image"), async (req, res) => 
 // Crear producto dentro de una categoría
 app.post("/products", authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, image, categoryId } = req.body; // La imagen ahora es una URL enviada desde el frontend
-    console.log("Datos recibidos:", req.body); // Agrega este log
+    const { name, description, price, image, categoryId } = req.body;
+    console.log("Datos recibidos:", req.body); // Verifica que los datos se reciban correctamente
+
     if (!image) {
       return res.status(400).json({ message: "La imagen es obligatoria" });
     }
@@ -221,7 +222,7 @@ app.post("/products", authMiddleware, async (req, res) => {
       name,
       description,
       price,
-      image, // Guardamos directamente la URL de Cloudinary
+      image,
       categoryId,
       userId: req.userId,
     });
