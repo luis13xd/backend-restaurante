@@ -212,7 +212,7 @@ app.post("/upload", authMiddleware, upload.single("image"), async (req, res) => 
 app.post("/products", authMiddleware, async (req, res) => {
   try {
     const { name, description, price, image, categoryId } = req.body; // La imagen ahora es una URL enviada desde el frontend
-
+    console.log("Datos recibidos:", req.body); // Agrega este log
     if (!image) {
       return res.status(400).json({ message: "La imagen es obligatoria" });
     }
