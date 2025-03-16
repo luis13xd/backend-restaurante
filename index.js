@@ -65,7 +65,7 @@ const ProductSchema = new mongoose.Schema({
   description: String,
   price: Number,
   image: String,
-  activo: { type: Boolean, default: true }, 
+  activo: { type: Boolean, default: true },
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
@@ -132,7 +132,6 @@ app.get("/public/products", async (req, res) => {
   }
 });
 
-
 app.post("/categories", authMiddleware, async (req, res) => {
   try {
     const { name } = req.body;
@@ -189,26 +188,32 @@ app.delete("/categories/:id", authMiddleware, async (req, res) => {
 });
 
 // Crear producto dentro de una categoría
-app.post("/products", upload.single("image"), authMiddleware, async (req, res) => {
-    try {
-      const { name, description, price, categoryId } = req.body;
-      const image = req.file ? req.file.filename : null;
-      const newProduct = new Product({
-        name,
-        description,
-        price,
-        image,
-        categoryId,
-        userId: req.userId,
-      });
-      await newProduct.save();
-      console.log("Producto creado:", newProduct);
-      res.status(201).json(newProduct);
-    } catch (error) {
-      res.status(500).json({ message: "Error al crear producto" });
+app.post("/products", authMiddleware, async (req, res) => {
+  try {
+    const { name, description, price, image, categoryId } = req.body; // La imagen ahora es una URL enviada desde el frontend
+
+    if (!image) {
+      return res.status(400).json({ message: "La imagen es obligatoria" });
     }
+
+    const newProduct = new Product({
+      name,
+      description,
+      price,
+      image, // Guardamos directamente la URL de Cloudinary
+      categoryId,
+      userId: req.userId,
+    });
+
+    await newProduct.save();
+    console.log("Producto creado:", newProduct);
+    res.status(201).json(newProduct);
+  } catch (error) {
+    console.error("Error al crear producto:", error);
+    res.status(500).json({ message: "Error al crear producto" });
   }
-);
+});
+
 
 app.use("/photos", express.static(path.join(__dirname, "photos")));
 
@@ -224,40 +229,35 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   }
 });
 
-app.put(
-  "/products/:id",
-  upload.single("image"),
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { name, description, price } = req.body;
-      const product = await Product.findOne({
-        _id: req.params.id,
-        userId: req.userId,
-      });
-      if (!product) {
-        return res.status(404).json({ message: "Producto no encontrado" });
-      }
-      let updatedImage = product.image;
-      if (req.file) {
-        const imagePath = path.join(__dirname, "photos", product.image);
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-        }
-        updatedImage = req.file.filename;
-      }
-      product.name = name || product.name;
-      product.description = description || product.description;
-      product.price = price || product.price;
-      product.image = updatedImage;
+app.put("/products/:id", authMiddleware, async (req, res) => {
+  try {
+    const { name, description, price, image } = req.body;
 
-      await product.save();
-      res.json(product);
-    } catch (error) {
-      res.status(500).json({ message: "Error al actualizar producto" });
+    const product = await Product.findOne({
+      _id: req.params.id,
+      userId: req.userId,
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
     }
+
+    product.name = name || product.name;
+    product.description = description || product.description;
+    product.price = price || product.price;
+
+    if (image) {
+      product.image = image; // Actualiza la imagen con la nueva URL si se envía una nueva
+    }
+
+    await product.save();
+    res.json(product);
+  } catch (error) {
+    console.error("Error al actualizar producto:", error);
+    res.status(500).json({ message: "Error al actualizar producto" });
   }
-);
+});
+
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
@@ -272,7 +272,9 @@ app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
     await product.save();
     res.json({ message: "Estado actualizado", activo: product.activo });
   } catch (error) {
-    res.status(500).json({ message: "Error al actualizar estado del producto" });
+    res
+      .status(500)
+      .json({ message: "Error al actualizar estado del producto" });
   }
 });
 
@@ -289,106 +291,3 @@ app.delete("/products/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Error al eliminar producto" });
   }
 });
-
-// ----------------------------------- PELICULAS  ---------------------------------------------
-const MovieSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  image: { type: String, required: true },
-  genre: { type: String, required: true },
-  description: { type: String, required: true },
-  dateTime: { type: Date, required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-});
-
-const Movie = mongoose.model("Movie", MovieSchema);
-
-const movieRouter = express.Router();
-
-// Obtener todas las películas del usuario autenticado
-movieRouter.get("/", authMiddleware, async (req, res) => {
-  try {
-    const movies = await Movie.find({ userId: req.userId });
-    res.json(movies);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener películas" });
-  }
-});
-
-movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
-    const { name, genre, description, dateTime } = req.body;
-    if (!name || !genre || !description || !dateTime) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios" });
-    }
-
-    const image = req.file ? req.file.filename : null;
-    if (!image) {
-      return res.status(400).json({ message: "La imagen es obligatoria" });
-    }
-
-    const newMovie = new Movie({
-      name,
-      genre,
-      description,
-      dateTime: new Date(dateTime), // Aseguramos el formato correcto
-      image,
-      userId: req.userId, // Viene del middleware de autenticación
-    });
-
-    await newMovie.save();
-    res.status(201).json(newMovie);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al crear película" });
-  }
-});
-
-app.use("/movies", movieRouter);
-
-movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-
-    const movie = await Movie.findOne({ _id: id, userId: req.userId });
-    if (!movie) {
-      return res.status(404).json({ message: "Película no encontrada o no autorizada" });
-    }
-
-    if (req.file) {
-      updateData.image = req.file.filename;
-    }
-
-    const updatedMovie = await Movie.findByIdAndUpdate(id, updateData, { new: true });
-    res.json(updatedMovie);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al actualizar la película" });
-  }
-});
-// Eliminar una película
-movieRouter.delete("/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deletedMovie = await Movie.findByIdAndDelete(id);
-
-    if (!deletedMovie) {
-      return res.status(404).json({ message: "Película no encontrada" });
-    }
-
-    res.json({ message: "Película eliminada con éxito" });
-  } catch (error) {
-    res.status(500).json({ message: "Error al eliminar la película" });
-  }
-});
-
-// Obtener todas las películas de todos los usuarios (público)
-movieRouter.get("/public", async (req, res) => {
-  try {
-    const movies = await Movie.find();
-    res.json(movies);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener películas" });
-  }
-});
-
