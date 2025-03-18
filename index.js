@@ -274,8 +274,8 @@ app.put("/products/:id", authMiddleware, async (req, res) => {
           product.image = image;
       }
 
-      await product.save();
-      res.json(product);
+      const updatedProduct = await product.save(); // Guarda el producto actualizado
+      res.json(updatedProduct); // Devuelve el producto actualizado
   } catch (error) {
       console.error("Error al actualizar producto:", error);
       res.status(500).json({ message: "Error al actualizar producto" });
