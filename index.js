@@ -241,24 +241,28 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   }
 });
 
-app.put("/products/:id", authMiddleware, async (req, res) => {
+app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-      const { name, description, price, image } = req.body;
-
-      const product = await Product.findOne({
-          _id: req.params.id,
-          userId: req.userId,
-      });
-
+      const { name, description, price } = req.body;
+      const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
       if (!product) {
           return res.status(404).json({ message: "Producto no encontrado" });
       }
-
       product.name = name || product.name;
       product.description = description || product.description;
       product.price = price || product.price;
-
-      if (image && image !== product.image) {
+      if (req.file) {
+          // Subir la nueva imagen a Cloudinary
+          const result = await new Promise((resolve, reject) => {
+              const stream = cloudinary.uploader.upload_stream(
+                  { folder: "products" },
+                  (error, result) => {
+                      if (error) reject(error);
+                      else resolve(result);
+                  }
+              );
+              streamifier.createReadStream(req.file.buffer).pipe(stream);
+          });
           // Eliminar la imagen anterior de Cloudinary
           if (product.image) {
               const oldPublicId = product.image.split('/').pop().split('.')[0];
@@ -269,13 +273,11 @@ app.put("/products/:id", authMiddleware, async (req, res) => {
                   console.error(`Error al eliminar imagen anterior de Cloudinary:`, cloudinaryError);
               }
           }
-
           // Actualizar la URL de la imagen en la base de datos
-          product.image = image;
+          product.image = result.secure_url;
       }
-
-      const updatedProduct = await product.save(); // Guarda el producto actualizado
-      res.json(updatedProduct); // Devuelve el producto actualizado
+      const updatedProduct = await product.save();
+      res.json(updatedProduct);
   } catch (error) {
       console.error("Error al actualizar producto:", error);
       res.status(500).json({ message: "Error al actualizar producto" });
