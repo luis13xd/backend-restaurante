@@ -243,7 +243,7 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
 
 app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-      const { name, description, price } = req.body;
+      const { name, description, price, image: existingImageUrl } = req.body; // Obtener la URL de imagen existente del cuerpo de la solicitud
       const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
       if (!product) {
           return res.status(404).json({ message: "Producto no encontrado" });
@@ -251,8 +251,9 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
       product.name = name || product.name;
       product.description = description || product.description;
       product.price = price || product.price;
+
       if (req.file) {
-          // Subir la nueva imagen a Cloudinary
+          // Se subió una nueva imagen
           const result = await new Promise((resolve, reject) => {
               const stream = cloudinary.uploader.upload_stream(
                   { folder: "products" },
@@ -263,7 +264,8 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
               );
               streamifier.createReadStream(req.file.buffer).pipe(stream);
           });
-          // Eliminar la imagen anterior de Cloudinary
+
+          // Eliminar la imagen anterior de Cloudinary (si existe)
           if (product.image) {
               const oldPublicId = product.image.split('/').pop().split('.')[0];
               try {
@@ -273,9 +275,13 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
                   console.error(`Error al eliminar imagen anterior de Cloudinary:`, cloudinaryError);
               }
           }
-          // Actualizar la URL de la imagen en la base de datos
-          product.image = result.secure_url;
+
+          product.image = result.secure_url; // Actualizar con la nueva URL
+      } else if (existingImageUrl && existingImageUrl !== product.image) {
+          // El usuario ha enviado una URL de imagen diferente (pero no un archivo)
+          product.image = existingImageUrl;
       }
+
       const updatedProduct = await product.save();
       res.json(updatedProduct);
   } catch (error) {
