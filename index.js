@@ -9,6 +9,8 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import authMiddleware from "./middlewares/authMiddleware.js";
+import cloudinary from "cloudinary";
+import streamifier from "streamifier";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -306,6 +308,16 @@ app.delete("/products/:id", authMiddleware, async (req, res) => {
     });
     if (!product)
       return res.status(404).json({ message: "Producto no encontrado" });
+    // Eliminar la imagen de Cloudinary
+    if (product.image) {
+      const publicId = product.image.split('/').pop().split('.')[0];
+      try {
+          await cloudinary.uploader.destroy(`products/${publicId}`);
+          console.log(`Imagen ${publicId} eliminada de Cloudinary`);
+      } catch (cloudinaryError) {
+          console.error(`Error al eliminar imagen de Cloudinary:`, cloudinaryError);
+      }
+  }
     res.json({ message: "Producto eliminado" });
   } catch (error) {
     res.status(500).json({ message: "Error al eliminar producto" });
