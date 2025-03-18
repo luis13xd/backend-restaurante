@@ -5,14 +5,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import authMiddleware from "./middlewares/authMiddleware.js";
 import cloudinary from "cloudinary";
 import streamifier from "streamifier";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -184,18 +179,13 @@ app.delete("/categories/:id", authMiddleware, async (req, res) => {
 });
 
 // Ruta para subir imágenes a Cloudinary
-app.post(
-  "/upload",
-  authMiddleware,
-  upload.single("image"),
-  async (req, res) => {
+app.post( "/upload", authMiddleware, upload.single("image"),  async (req, res) => {
     try {
       if (!req.file) {
         return res
           .status(400)
           .json({ message: "No se ha subido ninguna imagen" });
       }
-
       // Subir imagen a Cloudinary
       const result = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -207,7 +197,6 @@ app.post(
         );
         streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
-
       res.json({ imageUrl: result.secure_url });
     } catch (error) {
       console.error("Error al subir imagen:", error);
@@ -220,12 +209,9 @@ app.post(
 app.post("/products", authMiddleware, async (req, res) => {
   try {
     const { name, description, price, image, categoryId } = req.body;
-    console.log("Datos recibidos:", req.body); // Verifica que los datos se reciban correctamente
-
     if (!image) {
       return res.status(400).json({ message: "La imagen es obligatoria" });
     }
-
     const newProduct = new Product({
       name,
       description,
@@ -234,7 +220,6 @@ app.post("/products", authMiddleware, async (req, res) => {
       categoryId,
       userId: req.userId,
     });
-
     await newProduct.save();
     console.log("Producto creado:", newProduct);
     res.status(201).json(newProduct);
@@ -258,30 +243,42 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
 
 app.put("/products/:id", authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, image } = req.body;
+      const { name, description, price, image } = req.body;
 
-    const product = await Product.findOne({
-      _id: req.params.id,
-      userId: req.userId,
-    });
+      const product = await Product.findOne({
+          _id: req.params.id,
+          userId: req.userId,
+      });
 
-    if (!product) {
-      return res.status(404).json({ message: "Producto no encontrado" });
-    }
+      if (!product) {
+          return res.status(404).json({ message: "Producto no encontrado" });
+      }
 
-    product.name = name || product.name;
-    product.description = description || product.description;
-    product.price = price || product.price;
+      product.name = name || product.name;
+      product.description = description || product.description;
+      product.price = price || product.price;
 
-    if (image) {
-      product.image = image; // Actualiza la imagen con la nueva URL si se envía una nueva
-    }
+      if (image && image !== product.image) {
+          // Eliminar la imagen anterior de Cloudinary
+          if (product.image) {
+              const oldPublicId = product.image.split('/').pop().split('.')[0];
+              try {
+                  await cloudinary.uploader.destroy(oldPublicId);
+                  console.log(`Imagen ${oldPublicId} eliminada de Cloudinary`);
+              } catch (cloudinaryError) {
+                  console.error(`Error al eliminar imagen anterior de Cloudinary:`, cloudinaryError);
+              }
+          }
 
-    await product.save();
-    res.json(product);
+          // Actualizar la URL de la imagen en la base de datos
+          product.image = image;
+      }
+
+      await product.save();
+      res.json(product);
   } catch (error) {
-    console.error("Error al actualizar producto:", error);
-    res.status(500).json({ message: "Error al actualizar producto" });
+      console.error("Error al actualizar producto:", error);
+      res.status(500).json({ message: "Error al actualizar producto" });
   }
 });
 
@@ -306,29 +303,30 @@ app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
 
 app.delete("/products/:id", authMiddleware, async (req, res) => {
   try {
-      const product = await Product.findOneAndDelete({
-          _id: req.params.id,
-          userId: req.userId,
-      });
-      if (!product) {
-          return res.status(404).json({ message: "Producto no encontrado" });
+    const product = await Product.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId,
+    });
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+    // Eliminar la imagen de Cloudinary
+    if (product.image) {
+      const publicId = product.image.split("/").pop().split(".")[0];
+      try {
+        // Elimina 'products/' de la ruta
+        const result = await cloudinary.uploader.destroy(publicId);
+        console.log("Respuesta de Cloudinary:", result);
+        console.log(`Imagen ${publicId} eliminada de Cloudinary`);
+      } catch (cloudinaryError) {
+        console.error(
+          `Error al eliminar imagen de Cloudinary:`,
+          cloudinaryError
+        );
       }
-
-      // Eliminar la imagen de Cloudinary
-      if (product.image) {
-          const publicId = product.image.split('/').pop().split('.')[0];
-          try {
-              // Elimina 'products/' de la ruta
-              const result = await cloudinary.uploader.destroy(publicId);
-              console.log("Respuesta de Cloudinary:", result);
-              console.log(`Imagen ${publicId} eliminada de Cloudinary`);
-          } catch (cloudinaryError) {
-              console.error(`Error al eliminar imagen de Cloudinary:`, cloudinaryError);
-          }
-      }
-
-      res.json({ message: "Producto eliminado" });
+    }
+    res.json({ message: "Producto eliminado" });
   } catch (error) {
-      res.status(500).json({ message: "Error al eliminar producto" });
+    res.status(500).json({ message: "Error al eliminar producto" });
   }
 });
