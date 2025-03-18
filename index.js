@@ -184,31 +184,37 @@ app.delete("/categories/:id", authMiddleware, async (req, res) => {
 });
 
 // Ruta para subir imágenes a Cloudinary
-app.post("/upload", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No se ha subido ninguna imagen" });
+app.post(
+  "/upload",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ message: "No se ha subido ninguna imagen" });
+      }
+
+      // Subir imagen a Cloudinary
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "products" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+      res.json({ imageUrl: result.secure_url });
+    } catch (error) {
+      console.error("Error al subir imagen:", error);
+      res.status(500).json({ message: "Error al subir imagen" });
     }
-
-    // Subir imagen a Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "products" },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      streamifier.createReadStream(req.file.buffer).pipe(stream);
-    });
-
-    res.json({ imageUrl: result.secure_url });
-  } catch (error) {
-    console.error("Error al subir imagen:", error);
-    res.status(500).json({ message: "Error al subir imagen" });
   }
-});
-
+);
 
 // Crear producto dentro de una categoría
 app.post("/products", authMiddleware, async (req, res) => {
@@ -237,7 +243,6 @@ app.post("/products", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Error al crear producto" });
   }
 });
-
 
 app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   try {
@@ -280,7 +285,6 @@ app.put("/products/:id", authMiddleware, async (req, res) => {
   }
 });
 
-
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
     const product = await Product.findOne({
@@ -310,14 +314,18 @@ app.delete("/products/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Producto no encontrado" });
     // Eliminar la imagen de Cloudinary
     if (product.image) {
-      const publicId = product.image.split('/').pop().split('.')[0];
+      const publicId = product.image.split("/").pop().split(".")[0];
+      console.log("Public ID a eliminar:", publicId); // Agrega esta línea
       try {
-          await cloudinary.uploader.destroy(`products/${publicId}`);
-          console.log(`Imagen ${publicId} eliminada de Cloudinary`);
+        await cloudinary.uploader.destroy(`products/${publicId}`);
+        console.log(`Imagen ${publicId} eliminada de Cloudinary`);
       } catch (cloudinaryError) {
-          console.error(`Error al eliminar imagen de Cloudinary:`, cloudinaryError);
+        console.error(
+          `Error al eliminar imagen de Cloudinary:`,
+          cloudinaryError
+        );
       }
-  }
+    }
     res.json({ message: "Producto eliminado" });
   } catch (error) {
     res.status(500).json({ message: "Error al eliminar producto" });
