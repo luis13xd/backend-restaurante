@@ -306,28 +306,29 @@ app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
 
 app.delete("/products/:id", authMiddleware, async (req, res) => {
   try {
-    const product = await Product.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.userId,
-    });
-    if (!product)
-      return res.status(404).json({ message: "Producto no encontrado" });
-    // Eliminar la imagen de Cloudinary
-    if (product.image) {
-      const publicId = product.image.split("/").pop().split(".")[0];
-      console.log("Public ID a eliminar:", publicId); // Agrega esta línea
-      try {
-        await cloudinary.uploader.destroy(`products/${publicId}`);
-        console.log(`Imagen ${publicId} eliminada de Cloudinary`);
-      } catch (cloudinaryError) {
-        console.error(
-          `Error al eliminar imagen de Cloudinary:`,
-          cloudinaryError
-        );
+      const product = await Product.findOneAndDelete({
+          _id: req.params.id,
+          userId: req.userId,
+      });
+      if (!product) {
+          return res.status(404).json({ message: "Producto no encontrado" });
       }
-    }
-    res.json({ message: "Producto eliminado" });
+
+      // Eliminar la imagen de Cloudinary
+      if (product.image) {
+          const publicId = product.image.split('/').pop().split('.')[0];
+          try {
+              // Elimina 'products/' de la ruta
+              const result = await cloudinary.uploader.destroy(publicId);
+              console.log("Respuesta de Cloudinary:", result);
+              console.log(`Imagen ${publicId} eliminada de Cloudinary`);
+          } catch (cloudinaryError) {
+              console.error(`Error al eliminar imagen de Cloudinary:`, cloudinaryError);
+          }
+      }
+
+      res.json({ message: "Producto eliminado" });
   } catch (error) {
-    res.status(500).json({ message: "Error al eliminar producto" });
+      res.status(500).json({ message: "Error al eliminar producto" });
   }
 });
