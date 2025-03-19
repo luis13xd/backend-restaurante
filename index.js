@@ -179,7 +179,11 @@ app.delete("/categories/:id", authMiddleware, async (req, res) => {
 });
 
 // Ruta para subir imágenes a Cloudinary
-app.post( "/upload", authMiddleware, upload.single("image"),  async (req, res) => {
+app.post(
+  "/upload",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
     try {
       if (!req.file) {
         return res
@@ -189,7 +193,7 @@ app.post( "/upload", authMiddleware, upload.single("image"),  async (req, res) =
       // Subir imagen a Cloudinary
       const result = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: "products" },
+          {},
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
@@ -241,56 +245,63 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   }
 });
 
-app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
+app.put(
+  "/products/:id",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
       const { name, description, price } = req.body;
-      const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
-
+      const product = await Product.findOne({
+        _id: req.params.id,
+        userId: req.userId,
+      });
       if (!product) {
-          return res.status(404).json({ message: "Producto no encontrado" });
+        return res.status(404).json({ message: "Producto no encontrado" });
       }
-
-      // Actualizar los campos de texto
       product.name = name || product.name;
       product.description = description || product.description;
       product.price = price || product.price;
-
       if (req.file) {
-          // Eliminar la imagen anterior de Cloudinary si existe
-          if (product.image) {
-              const oldPublicId = product.image.split('/').pop().split('.')[0];
-              try {
-                  await cloudinary.uploader.destroy(`products/${oldPublicId}`);
-                  console.log(`Imagen ${oldPublicId} eliminada de Cloudinary`);
-              } catch (error) {
-                  console.error("Error al eliminar imagen anterior de Cloudinary:", error);
-                  return res.status(500).json({ message: "Error al eliminar imagen anterior" });
-              }
+        // Eliminar la imagen anterior de Cloudinary si existe
+        if (product.image) {
+          const oldPublicId = product.image.split("/").pop().split(".")[0];
+          try {
+            await cloudinary.uploader.destroy(oldPublicId); // Elimina `products/`
+            console.log(`Imagen ${oldPublicId} eliminada de Cloudinary`);
+          } catch (error) {
+            console.error(
+              "Error al eliminar imagen anterior de Cloudinary:",
+              error
+            );
+            return res
+              .status(500)
+              .json({ message: "Error al eliminar imagen anterior" });
           }
+        }
+        // Subir la nueva imagen a Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {}, // Elimina { folder: "products" }
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
 
-          // Subir la nueva imagen a Cloudinary
-          const result = await new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                  { folder: "products" },
-                  (error, result) => {
-                      if (error) reject(error);
-                      else resolve(result);
-                  }
-              );
-              streamifier.createReadStream(req.file.buffer).pipe(stream);
-          });
-
-          product.image = result.secure_url; // Guardar la nueva URL de imagen
+        product.image = result.secure_url; // Guardar la nueva URL de imagen
       }
 
       const updatedProduct = await product.save();
       res.json(updatedProduct);
-  } catch (error) {
+    } catch (error) {
       console.error("Error al actualizar producto:", error);
       res.status(500).json({ message: "Error al actualizar producto" });
+    }
   }
-});
-
+);
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
