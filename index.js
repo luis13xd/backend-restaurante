@@ -245,63 +245,76 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   }
 });
 
-app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
-    const { name, description, price } = req.body;
+app.put(
+  "/products/:id",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { name, description, price } = req.body;
 
-    const product = await Product.findOne({
-      _id: req.params.id,
-      userId: req.userId,
-    });
-
-    if (!product) {
-      return res.status(404).json({ message: "Producto no encontrado" });
-    }
-
-    product.name = name || product.name;
-    product.description = description || product.description;
-    product.price = price || product.price;
-
-    if (req.file) {
-      // Intentar eliminar la imagen anterior de Cloudinary si existe
-      if (product.image) {
-        try {
-          // Extraer el public_id de la URL de Cloudinary
-          const urlParts = product.image.split("/");
-          const publicIdWithExtension = urlParts.slice(-2).join("/"); // Tomar las últimas dos partes de la URL
-          const publicId = publicIdWithExtension.split(".")[0]; // Remover la extensión de la imagen
-
-          const destroyResult = await cloudinary.uploader.destroy(publicId);
-          console.log("Resultado de eliminación de Cloudinary:", destroyResult);
-        } catch (error) {
-          console.error("Error al eliminar imagen anterior de Cloudinary:", error);
-        }
-      }
-
-      // Subir la nueva imagen a Cloudinary
-      const result = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "products" }, // Opcional: Guardar en una carpeta específica
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      const product = await Product.findOne({
+        _id: req.params.id,
+        userId: req.userId,
       });
 
-      console.log("Nueva URL de imagen subida:", result.secure_url);
-      product.image = result.secure_url;
+      if (!product) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+
+      product.name = name || product.name;
+      product.description = description || product.description;
+      product.price = price || product.price;
+
+      if (req.file) {
+        // Intentar eliminar la imagen anterior de Cloudinary si existe
+        if (product.image) {
+          try {
+            // Extraer el public_id de la URL de Cloudinary
+            const urlParts = product.image.split("/");
+            const publicIdWithExtension = urlParts.slice(-2).join("/"); // Tomar las últimas dos partes de la URL
+            const publicId = publicIdWithExtension.split(".")[0]; // Remover la extensión de la imagen
+
+            const destroyResult = await cloudinary.uploader.destroy(publicId);
+            console.log(
+              "Resultado de eliminación de Cloudinary:",
+              destroyResult
+            );
+          } catch (error) {
+            console.error(
+              "Error al eliminar imagen anterior de Cloudinary:",
+              error
+            );
+          }
+        }
+
+        // Subir la nueva imagen a Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "products" }, // Opcional: Guardar en una carpeta específica
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+
+        console.log("Nueva URL de imagen subida:", result.secure_url);
+        product.image = result.secure_url;
+      }
+
+      console.log("Producto antes de guardar:", product);
+      const updatedProduct = await product.save();
+      console.log("Producto actualizado en BD:", updatedProduct);
+
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Error al actualizar producto:", error);
+      res.status(500).json({ message: "Error al actualizar producto" });
     }
-
-    const updatedProduct = await product.save();
-    res.json(updatedProduct);
-  } catch (error) {
-    console.error("Error al actualizar producto:", error);
-    res.status(500).json({ message: "Error al actualizar producto" });
   }
-});
-
+);
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
