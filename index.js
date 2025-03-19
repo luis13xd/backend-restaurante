@@ -243,7 +243,7 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
 
 app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-      const { name, description, price, image: existingImageUrl } = req.body; // Obtener la URL de imagen existente del cuerpo de la solicitud
+      const { name, description, price, image: existingImageUrl } = req.body;
       const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
       if (!product) {
           return res.status(404).json({ message: "Producto no encontrado" });
@@ -254,6 +254,23 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
 
       if (req.file) {
           // Se subió una nueva imagen
+          if (product.image) {
+              // Eliminar la imagen anterior de Cloudinary
+              const oldPublicId = product.image.split('/').pop().split('.')[0];
+              try {
+                  const destroyResult = await cloudinary.uploader.destroy(oldPublicId);
+                  if (destroyResult.result !== "ok") {
+                      console.error(`Error al eliminar imagen anterior de Cloudinary:`, destroyResult);
+                      return res.status(500).json({ message: "Error al eliminar imagen anterior" });
+                  }
+                  console.log(`Imagen ${oldPublicId} eliminada de Cloudinary`);
+              } catch (cloudinaryError) {
+                  console.error(`Error al eliminar imagen anterior de Cloudinary:`, cloudinaryError);
+                  return res.status(500).json({ message: "Error al eliminar imagen anterior" });
+              }
+          }
+
+          // Subir la nueva imagen a Cloudinary
           const result = await new Promise((resolve, reject) => {
               const stream = cloudinary.uploader.upload_stream(
                   { folder: "products" },
@@ -264,17 +281,6 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
               );
               streamifier.createReadStream(req.file.buffer).pipe(stream);
           });
-
-          // Eliminar la imagen anterior de Cloudinary (si existe)
-          if (product.image) {
-              const oldPublicId = product.image.split('/').pop().split('.')[0];
-              try {
-                  await cloudinary.uploader.destroy(oldPublicId);
-                  console.log(`Imagen ${oldPublicId} eliminada de Cloudinary`);
-              } catch (cloudinaryError) {
-                  console.error(`Error al eliminar imagen anterior de Cloudinary:`, cloudinaryError);
-              }
-          }
 
           product.image = result.secure_url; // Actualizar con la nueva URL
       } else if (existingImageUrl && existingImageUrl !== product.image) {
