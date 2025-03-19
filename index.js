@@ -266,9 +266,11 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
       // Intentar eliminar la imagen anterior de Cloudinary si existe
       if (product.image) {
         try {
+          // Extraer el public_id de la URL de Cloudinary
           const urlParts = product.image.split("/");
-          const publicId = urlParts.slice(-2).join("/").split(".")[0]; // Obtener correctamente el public_id
-          
+          const publicIdWithExtension = urlParts.slice(-2).join("/"); // Tomar las últimas dos partes de la URL
+          const publicId = publicIdWithExtension.split(".")[0]; // Remover la extensión de la imagen
+
           const destroyResult = await cloudinary.uploader.destroy(publicId);
           console.log("Resultado de eliminación de Cloudinary:", destroyResult);
         } catch (error) {
@@ -299,6 +301,7 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
     res.status(500).json({ message: "Error al actualizar producto" });
   }
 });
+
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
