@@ -261,17 +261,6 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
       product.price = price || product.price;
 
       if (req.file) {
-          // Eliminar la imagen anterior de Cloudinary si existe
-          if (product.image) {
-              try {
-                  const publicId = product.image.split("/").pop().split(".")[0];
-                  await cloudinary.uploader.destroy(publicId);
-                  console.log(`Imagen ${publicId} eliminada de Cloudinary`);
-              } catch (cloudinaryError) {
-                  console.error("Error al eliminar imagen anterior de Cloudinary:", cloudinaryError);
-              }
-          }
-
           // Subir la nueva imagen a Cloudinary
           const result = await new Promise((resolve, reject) => {
               const stream = cloudinary.uploader.upload_stream(
