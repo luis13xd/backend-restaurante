@@ -249,6 +249,9 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
   try {
       const { name, description, price } = req.body;
 
+      console.log("req.body:", req.body);
+      console.log("req.file:", req.file);
+
       const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
 
       if (!product) {
