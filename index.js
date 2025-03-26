@@ -245,6 +245,7 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
   }
 });
 
+// Ruta para actualizar producto
 app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
       const { name, description, price } = req.body;
