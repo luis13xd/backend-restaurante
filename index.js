@@ -248,27 +248,15 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
 // Ruta para actualizar producto
 app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
+      const { id } = req.params;
       const { name, description, price } = req.body;
-
-      console.log("req.body:", req.body);
-      console.log("req.file:", req.file);
-
-      const product = await Product.findOne({ _id: req.params.id, userId: req.userId });
-
-      if (!product) {
-          return res.status(404).json({ message: "Producto no encontrado" });
-      }
-
-      // Actualizar los campos de texto
-      product.name = name || product.name;
-      product.description = description || product.description;
-      product.price = price || product.price;
+      let updatedData = { name, description, price };
 
       if (req.file) {
-          // Subir la nueva imagen a Cloudinary
+          // Subir imagen a Cloudinary
           const result = await new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                  { folder: "products" },
+              let stream = cloudinary.v2.uploader.upload_stream(
+                  { folder: "productos" },
                   (error, result) => {
                       if (error) reject(error);
                       else resolve(result);
@@ -277,19 +265,20 @@ app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res
               streamifier.createReadStream(req.file.buffer).pipe(stream);
           });
 
-          product.image = result.secure_url; // Guardar la nueva URL de imagen
-          console.log("Nueva URL de imagen subida:", result.secure_url);
+          updatedData.image = result.secure_url; // Guardar la URL de la imagen en el producto
       }
 
-      const updatedProduct = await product.save();
-      console.log("Producto actualizado en BD:", updatedProduct);
+      const updatedProduct = await Product.findByIdAndUpdate(id, updatedData, { new: true });
+
+      if (!updatedProduct) return res.status(404).json({ message: "Producto no encontrado" });
 
       res.json(updatedProduct);
   } catch (error) {
       console.error("Error al actualizar producto:", error);
-      res.status(500).json({ message: "Error al actualizar producto" });
+      res.status(500).json({ message: "Error al actualizar el producto" });
   }
 });
+
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
