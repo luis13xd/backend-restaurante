@@ -382,7 +382,7 @@ movieRouter.post("/", authMiddleware, async (req, res) => {
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-movieRouter.put("/movies/:id", authMiddleware, async (req, res) => {
+router.put("/movies/:id", authMiddleware, upload.none(), async (req, res) => { // Usamos upload.none() para procesar FormData sin archivos
   try {
     const { id } = req.params;
     const { name, genre, description, dateTime, image } = req.body;
@@ -392,7 +392,7 @@ movieRouter.put("/movies/:id", authMiddleware, async (req, res) => {
       genre,
       description,
       dateTime: dateTime ? new Date(dateTime) : undefined,
-      image: image, // Guardar la URL directamente
+      image: image, // Guardar la URL de Cloudinary
     };
 
     const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
