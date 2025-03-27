@@ -10,23 +10,19 @@ import cloudinary from "cloudinary";
 import streamifier from "streamifier";
 
 dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const SECRET_KEY = process.env.JWT_SECRET;
-
 // Configuración de Cloudinary
 cloudinary.config({
   cloud_name: "dntqcucm0",
   api_key: "527779671966668",
   api_secret: "PytC_XdWC1RcEeToT7i2jSC43B4",
 });
-
-// Middlewares
+// Middleware
 app.use(cors());
 app.use(express.json());
-
 // Conectar a MongoDB
 mongoose
   .connect(MONGO_URI)
@@ -35,21 +31,17 @@ mongoose
 // Configuración de Multer (para leer archivos en memoria)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
 // Modelo de Usuario
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
 });
 const User = mongoose.model("User", UserSchema);
-
 const CategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
-
 const Category = mongoose.model("Category", CategorySchema);
-
 // Definir modelo de Producto
 const ProductSchema = new mongoose.Schema({
   name: String,
@@ -356,41 +348,43 @@ movieRouter.get("/", authMiddleware, async (req, res) => {
 // Ruta para crear una película
 movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-    console.log("Req.body:", req.body); // Debugging
-    const { name, genre, description, dateTime } = req.body;
-    if (!name || !genre || !description || !dateTime) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios" });
-    }
+      console.log("Req.body:", req.body); // Debugging
+      const { name, genre, description, dateTime } = req.body;
+      console.log("DateTime:", dateTime); // Debugging
 
-    if (!req.file) {
-      return res.status(400).json({ message: "La imagen es obligatoria" });
-    }
+      if (!name || !genre || !description || !dateTime) {
+          return res.status(400).json({ message: "Todos los campos son obligatorios" });
+      }
 
-    const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "peliculas" }, // Puedes organizar las imágenes en carpetas
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      streamifier.createReadStream(req.file.buffer).pipe(stream);
-    });
+      if (!req.file) {
+          return res.status(400).json({ message: "La imagen es obligatoria" });
+      }
 
-    const newMovie = new Movie({
-      name,
-      genre,
-      description,
-      dateTime: new Date(dateTime),
-      image: result.secure_url, // Guardar la URL de Cloudinary
-      userId: req.userId,
-    });
+      const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+              { folder: "peliculas" },
+              (error, result) => {
+                  if (error) reject(error);
+                  else resolve(result);
+              }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
 
-    await newMovie.save();
-    res.status(201).json(newMovie);
+      const newMovie = new Movie({
+          name,
+          genre,
+          description,
+          dateTime: new Date(dateTime),
+          image: result.secure_url,
+          userId: req.userId,
+      });
+
+      await newMovie.save();
+      res.status(201).json(newMovie);
   } catch (error) {
-    console.error("Error al crear película:", error);
-    res.status(500).json({ message: "Error al crear película" });
+      console.error("Error al crear película:", error);
+      res.status(500).json({ message: "Error al crear película" });
   }
 });
 
