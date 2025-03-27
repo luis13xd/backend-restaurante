@@ -356,44 +356,45 @@ movieRouter.get("/", authMiddleware, async (req, res) => {
 // Ruta para crear una película
 movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-      console.log("Req.body:", req.body);
-      console.log("Req.file:", req.file);
+    console.log("Datos recibidos:", req.body);
+    console.log("Archivo recibido:", req.file);
 
-      const { name, genre, description, dateTime } = req.body;
+    const { name, genre, description, dateTime } = req.body;
 
-      if (!name || !genre || !description || !dateTime) {
-          return res.status(400).json({ message: "Todos los campos son obligatorios" });
-      }
+    if (!name || !genre || !description || !dateTime) {
+      return res.status(400).json({ message: "Todos los campos son obligatorios" });
+    }
 
-      if (!req.file) {
-          return res.status(400).json({ message: "La imagen es obligatoria" });
-      }
+    if (!req.file) {
+      return res.status(400).json({ message: "La imagen es obligatoria" });
+    }
 
-      const result = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-              { folder: "peliculas" },
-              (error, result) => {
-                  if (error) reject(error);
-                  else resolve(result);
-              }
-          );
-          streamifier.createReadStream(req.file.buffer).pipe(stream);
-      });
+    // Subir imagen a Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "peliculas" },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      streamifier.createReadStream(req.file.buffer).pipe(stream);
+    });
 
-      const newMovie = new Movie({
-          name,
-          genre,
-          description,
-          dateTime: new Date(dateTime),
-          image: result.secure_url,
-          userId: req.userId,
-      });
+    const newMovie = new Movie({
+      name,
+      genre,
+      description,
+      dateTime: new Date(dateTime),
+      image: result.secure_url,
+      userId: req.userId,
+    });
 
-      await newMovie.save();
-      res.status(201).json(newMovie);
+    await newMovie.save();
+    res.status(201).json(newMovie);
   } catch (error) {
-      console.error("Error al crear película:", error);
-      res.status(500).json({ message: "Error al crear película" });
+    console.error("Error al crear película:", error);
+    res.status(500).json({ message: "Error al crear película" });
   }
 });
 
