@@ -385,13 +385,14 @@ app.use("/movies", movieRouter);
 movieRouter.put("/movies/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, genre, description, dateTime, image } = req.body; // Incluimos 'image'
+    const { name, genre, description, dateTime, image } = req.body;
+
     let updatedData = {
       name,
       genre,
       description,
-      dateTime: new Date(dateTime),
-      image: image, // Guardamos la URL directamente
+      dateTime: dateTime ? new Date(dateTime) : undefined,
+      image: image, // Guardar la URL directamente
     };
 
     const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
