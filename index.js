@@ -382,18 +382,33 @@ movieRouter.post("/", authMiddleware, async (req, res) => {
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-router.put("/movies/:id", authMiddleware, upload.none(), async (req, res) => { // Usamos upload.none() para procesar FormData sin archivos
+movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, genre, description, dateTime, image } = req.body;
+    const { name, genre, description, dateTime } = req.body;
 
     let updatedData = {
       name,
       genre,
       description,
       dateTime: dateTime ? new Date(dateTime) : undefined,
-      image: image, // Guardar la URL de Cloudinary
     };
+
+    if (req.file) {
+      // Subir imagen a Cloudinary
+      const result = await new Promise((resolve, reject) => {
+        let stream = cloudinary.v2.uploader.upload_stream(
+          { folder: "peliculas" }, // Cambiar la carpeta si es necesario
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+
+      updatedData.image = result.secure_url; // Guardar la URL de la imagen en la película
+    }
 
     const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
       new: true,
