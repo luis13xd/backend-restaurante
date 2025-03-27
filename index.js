@@ -382,50 +382,32 @@ movieRouter.post("/", authMiddleware, async (req, res) => {
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-movieRouter.put(
-  "/movies/:id",
-  authMiddleware,
-  upload.single("image"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, genre, description, dateTime } = req.body;
-      let updatedData = {
-        name,
-        genre,
-        description,
-        dateTime: new Date(dateTime),
-      };
+movieRouter.put("/movies/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, genre, description, dateTime, image } = req.body; // Incluimos 'image'
+    let updatedData = {
+      name,
+      genre,
+      description,
+      dateTime: new Date(dateTime),
+      image: image, // Guardamos la URL directamente
+    };
 
-      if (req.file) {
-        const result = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: "peliculas" },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          streamifier.createReadStream(req.file.buffer).pipe(stream);
-        });
-        updatedData.image = result.secure_url;
-      }
+    const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
+      new: true,
+    });
 
-      const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
-        new: true,
-      });
-
-      if (!updatedMovie) {
-        return res.status(404).json({ message: "Película no encontrada" });
-      }
-
-      res.json(updatedMovie);
-    } catch (error) {
-      console.error("Error al actualizar película:", error);
-      res.status(500).json({ message: "Error al actualizar película" });
+    if (!updatedMovie) {
+      return res.status(404).json({ message: "Película no encontrada" });
     }
+
+    res.json(updatedMovie);
+  } catch (error) {
+    console.error("Error al actualizar película:", error);
+    res.status(500).json({ message: "Error al actualizar película" });
   }
-);
+});
 // Ruta para eliminar una película
 movieRouter.delete("/movies/:id", authMiddleware, async (req, res) => {
   try {
