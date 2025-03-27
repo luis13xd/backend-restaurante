@@ -23,7 +23,7 @@ cloudinary.config({
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); 
+app.use(express.urlencoded({ extended: true }));
 // Conectar a MongoDB
 mongoose
   .connect(MONGO_URI)
@@ -239,39 +239,46 @@ app.get("/products/:categoryId", authMiddleware, async (req, res) => {
 });
 
 // Ruta para actualizar producto
-app.put("/products/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
+app.put(
+  "/products/:id",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
       const { id } = req.params;
       const { name, description, price } = req.body;
       let updatedData = { name, description, price };
 
       if (req.file) {
-          // Subir imagen a Cloudinary
-          const result = await new Promise((resolve, reject) => {
-              let stream = cloudinary.v2.uploader.upload_stream(
-                  { folder: "productos" },
-                  (error, result) => {
-                      if (error) reject(error);
-                      else resolve(result);
-                  }
-              );
-              streamifier.createReadStream(req.file.buffer).pipe(stream);
-          });
+        // Subir imagen a Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          let stream = cloudinary.v2.uploader.upload_stream(
+            { folder: "productos" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
 
-          updatedData.image = result.secure_url; // Guardar la URL de la imagen en el producto
+        updatedData.image = result.secure_url; // Guardar la URL de la imagen en el producto
       }
 
-      const updatedProduct = await Product.findByIdAndUpdate(id, updatedData, { new: true });
+      const updatedProduct = await Product.findByIdAndUpdate(id, updatedData, {
+        new: true,
+      });
 
-      if (!updatedProduct) return res.status(404).json({ message: "Producto no encontrado" });
+      if (!updatedProduct)
+        return res.status(404).json({ message: "Producto no encontrado" });
 
       res.json(updatedProduct);
-  } catch (error) {
+    } catch (error) {
       console.error("Error al actualizar producto:", error);
       res.status(500).json({ message: "Error al actualizar el producto" });
+    }
   }
-});
-
+);
 
 app.put("/products/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
@@ -393,61 +400,78 @@ movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) =
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-movieRouter.put("/movies/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
+movieRouter.put(
+  "/movies/:id",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
       const { id } = req.params;
       const { name, genre, description, dateTime } = req.body;
-      let updatedData = { name, genre, description, dateTime: new Date(dateTime) };
+      let updatedData = {
+        name,
+        genre,
+        description,
+        dateTime: new Date(dateTime),
+      };
 
       if (req.file) {
-          const result = await new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                  { folder: "peliculas" },
-                  (error, result) => {
-                      if (error) reject(error);
-                      else resolve(result);
-                  }
-              );
-              streamifier.createReadStream(req.file.buffer).pipe(stream);
-          });
-          updatedData.image = result.secure_url;
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "peliculas" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+        updatedData.image = result.secure_url;
       }
 
-      const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, { new: true });
+      const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
+        new: true,
+      });
 
       if (!updatedMovie) {
-          return res.status(404).json({ message: "Película no encontrada" });
+        return res.status(404).json({ message: "Película no encontrada" });
       }
 
       res.json(updatedMovie);
-  } catch (error) {
+    } catch (error) {
       console.error("Error al actualizar película:", error);
       res.status(500).json({ message: "Error al actualizar película" });
+    }
   }
-});
-// Ruta para eliminar una película
+);
 // Ruta para eliminar una película
 movieRouter.delete("/movies/:id", authMiddleware, async (req, res) => {
   try {
-      const movie = await Movie.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-      if (!movie) {
-          return res.status(404).json({ message: "Película no encontrada" });
-      }
+    const movie = await Movie.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId,
+    });
+    if (!movie) {
+      return res.status(404).json({ message: "Película no encontrada" });
+    }
 
-      // Eliminar la imagen de Cloudinary
-      if (movie.image) {
-          const publicId = movie.image.split("/").pop().split(".")[0];
-          try {
-              const result = await cloudinary.uploader.destroy(publicId);
-              console.log("Respuesta de Cloudinary:", result);
-              console.log(`Imagen ${publicId} eliminada de Cloudinary`);
-          } catch (cloudinaryError) {
-              console.error(`Error al eliminar imagen de Cloudinary:`, cloudinaryError);
-          }
+    // Eliminar la imagen de Cloudinary
+    if (movie.image) {
+      const publicId = movie.image.split("/").pop().split(".")[0];
+      try {
+        const result = await cloudinary.uploader.destroy(publicId);
+        console.log("Respuesta de Cloudinary:", result);
+        console.log(`Imagen ${publicId} eliminada de Cloudinary`);
+      } catch (cloudinaryError) {
+        console.error(
+          `Error al eliminar imagen de Cloudinary:`,
+          cloudinaryError
+        );
       }
-      res.json({ message: "Película eliminada" });
+    }
+    res.json({ message: "Película eliminada" });
   } catch (error) {
-      res.status(500).json({ message: "Error al eliminar película" });
+    res.status(500).json({ message: "Error al eliminar película" });
   }
 });
 
@@ -460,5 +484,3 @@ movieRouter.get("/public", async (req, res) => {
     res.status(500).json({ message: "Error al obtener películas" });
   }
 });
-
-
