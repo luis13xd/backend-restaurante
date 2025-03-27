@@ -382,7 +382,7 @@ movieRouter.post("/", authMiddleware, async (req, res) => {
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-movieRouter.put("/:id", authMiddleware, async (req, res) => {
+movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, genre, description, dateTime, image } = req.body; // Incluir 'image'
