@@ -23,6 +23,7 @@ cloudinary.config({
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); 
 // Conectar a MongoDB
 mongoose
   .connect(MONGO_URI)
@@ -345,6 +346,7 @@ movieRouter.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+// Ruta para crear una película
 // Ruta para crear una película
 movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   try {
