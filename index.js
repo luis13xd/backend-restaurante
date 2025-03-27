@@ -332,7 +332,7 @@ app.delete("/products/:id", authMiddleware, async (req, res) => {
 // ----------------------------------- PELICULAS  ---------------------------------------------
 const MovieSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  image: { type: String, required: true },
+  image: { type: String }, // Eliminamos required: true
   genre: { type: String, required: true },
   description: { type: String, required: true },
   dateTime: { type: Date, required: true },
@@ -354,39 +354,20 @@ movieRouter.get("/", authMiddleware, async (req, res) => {
 });
 
 // Ruta para crear una película
-movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
+movieRouter.post("/", authMiddleware, async (req, res) => {
   try {
-    console.log("Datos recibidos:", req.body);
-    console.log("Archivo recibido:", req.file);
-
-    const { name, genre, description, dateTime } = req.body;
+    const { name, genre, description, dateTime, image } = req.body; // Incluimos 'image'
 
     if (!name || !genre || !description || !dateTime) {
       return res.status(400).json({ message: "Todos los campos son obligatorios" });
     }
-
-    if (!req.file) {
-      return res.status(400).json({ message: "La imagen es obligatoria" });
-    }
-
-    // Subir imagen a Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "peliculas" },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      streamifier.createReadStream(req.file.buffer).pipe(stream);
-    });
 
     const newMovie = new Movie({
       name,
       genre,
       description,
       dateTime: new Date(dateTime),
-      image: result.secure_url,
+      image: image, // Guardamos la URL directamente
       userId: req.userId,
     });
 
