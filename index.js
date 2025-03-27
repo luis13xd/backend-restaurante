@@ -356,6 +356,7 @@ movieRouter.get("/", authMiddleware, async (req, res) => {
 // Ruta para crear una película
 movieRouter.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   try {
+    console.log("Req.body:", req.body); // Debugging
     const { name, genre, description, dateTime } = req.body;
     if (!name || !genre || !description || !dateTime) {
       return res.status(400).json({ message: "Todos los campos son obligatorios" });
