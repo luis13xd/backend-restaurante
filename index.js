@@ -382,10 +382,10 @@ movieRouter.post("/", authMiddleware, async (req, res) => {
 app.use("/movies", movieRouter);
 
 // Ruta para actualizar una película
-movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
+movieRouter.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, genre, description, dateTime } = req.body;
+    const { name, genre, description, dateTime, image } = req.body; // Incluir 'image'
 
     let updatedData = {
       name,
@@ -395,10 +395,10 @@ movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res)
     };
 
     if (req.file) {
-      // Subir imagen a Cloudinary
+      // Subir imagen a Cloudinary (si se envía un archivo)
       const result = await new Promise((resolve, reject) => {
         let stream = cloudinary.v2.uploader.upload_stream(
-          { folder: "peliculas" }, // Cambiar la carpeta si es necesario
+          { folder: "peliculas" },
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
@@ -408,6 +408,9 @@ movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res)
       });
 
       updatedData.image = result.secure_url; // Guardar la URL de la imagen en la película
+    } else if (image) {
+      // Usar la URL de la imagen enviada directamente
+      updatedData.image = image;
     }
 
     const updatedMovie = await Movie.findByIdAndUpdate(id, updatedData, {
