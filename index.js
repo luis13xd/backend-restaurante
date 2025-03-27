@@ -428,7 +428,7 @@ movieRouter.put("/:id", authMiddleware, upload.single("image"), async (req, res)
   }
 });
 // Ruta para eliminar una película
-movieRouter.delete("/movies/:id", authMiddleware, async (req, res) => {
+movieRouter.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const movie = await Movie.findOneAndDelete({
       _id: req.params.id,
